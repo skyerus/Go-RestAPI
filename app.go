@@ -35,7 +35,7 @@ func (a *App) Initialize(user, password, dbname string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	Store.MaxAge(21600)
 	a.Router = mux.NewRouter()
 	a.initializeRoutes()
 }
@@ -142,15 +142,15 @@ func (a *App) isLoggedIn(w http.ResponseWriter, r *http.Request) {
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	session, err := Store.Get(r, "logged_in")
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Could not find session")
+		respondWithError(w, 404, "Could not find session")
 		return
 	}
 	if session.Values != nil {
 		session.Options.MaxAge = -1
 	} else {
 		respondWithError(w, http.StatusBadRequest, "You're already logged out")
+		return
 	}
-
 	err = session.Save(r, w)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Could not logout")
