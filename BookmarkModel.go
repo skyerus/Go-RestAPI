@@ -7,8 +7,49 @@ type bookmark struct {
 	Title    string `json:"title"`
 	About    string `json:"about"`
 	Link     string `json:"link"`
-	Category string `json:"category"`
+	Category int    `json:"category"`
 	UserID   int    `json:"userid"`
+	OrderID  int    `json:"orderid"`
+}
+
+func (b *bookmark) getCategoryBookmarks(db *sql.DB) ([]bookmark, error) {
+	rows, err := db.Query(
+		"SELECT * FROM bookmarks WHERE userid=$1 AND category=$2", b.UserID, b.Category)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	bookmarks := []bookmark{}
+	for rows.Next() {
+		var bb bookmark
+		if err := rows.Scan(&bb.ID, &bb.Title, &bb.About, &bb.Link, &bb.Category, &bb.UserID); err != nil {
+			return nil, err
+		}
+		bookmarks = append(bookmarks, bb)
+	}
+	return bookmarks, nil
+}
+
+func (b *bookmark) getUserBookmarks(db *sql.DB) ([]bookmark, error) {
+	rows, err := db.Query(
+		"SELECT * FROM bookmarks WHERE userid=$1", b.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	bookmarks := []bookmark{}
+	for rows.Next() {
+		var bb bookmark
+		if err := rows.Scan(&bb.ID, &bb.Title, &bb.About, &bb.Link, &bb.Category, &bb.UserID); err != nil {
+			return nil, err
+		}
+		bookmarks = append(bookmarks, bb)
+	}
+	return bookmarks, nil
 }
 
 func (b *bookmark) createBookmark(db *sql.DB) error {
@@ -25,8 +66,8 @@ func (b *bookmark) createBookmark(db *sql.DB) error {
 
 func (b *bookmark) updateBookmark(db *sql.DB) error {
 	_, err :=
-		db.Exec("UPDATE bookmarks SET title=$1, about=$2, link=$3, category=$4 WHERE id=$5",
-			b.Title, b.About, b.Link, b.Category, b.ID)
+		db.Exec("UPDATE bookmarks SET title=$1, about=$2, link=$3 WHERE id=$4",
+			b.Title, b.About, b.Link, b.ID)
 
 	return err
 }

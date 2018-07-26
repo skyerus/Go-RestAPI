@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/handlers"
 
@@ -48,12 +47,19 @@ func (a *App) initializeRoutes() {
 	a.Router.HandleFunc("/api/user/edit/username", a.updateUsername).Methods("PUT", "OPTIONS")
 	a.Router.HandleFunc("/api/user/edit/email", a.updateEmail).Methods("PUT", "OPTIONS")
 	a.Router.HandleFunc("/api/user/edit/password", a.updatePassword).Methods("PUT", "OPTIONS")
-	a.Router.HandleFunc("/api/user/delete", a.deleteUser).Methods("PUT", "OPTIONS")
-	a.Router.HandleFunc("/api/user/bookmarks", a.getUserBookmarks).Methods("GET", "OPTIONS")
+	a.Router.HandleFunc("/api/user", a.deleteUser).Methods("DELETE", "OPTIONS")
 	a.Router.HandleFunc("/api/user/bookmark", a.createBookmark).Methods("POST", "OPTIONS")
-	a.Router.HandleFunc("/api/user/bookmark/{id}", a.getBookmark).Methods("GET", "OPTIONS")
-	a.Router.HandleFunc("/api/user/bookmark/{id}", a.updateBookmark).Methods("PUT", "OPTIONS")
-	a.Router.HandleFunc("/api/user/bookmark/{id}", a.deleteBookmark).Methods("DELETE", "OPTIONS")
+	a.Router.HandleFunc("/api/user/bookmark", a.getBookmark).Methods("GET", "OPTIONS")
+	a.Router.HandleFunc("/api/user/bookmark", a.updateBookmark).Methods("PUT", "OPTIONS")
+	a.Router.HandleFunc("/api/user/bookmark", a.deleteBookmark).Methods("DELETE", "OPTIONS")
+	a.Router.HandleFunc("/api/user/category", a.createCategory).Methods("POST", "OPTIONS")
+	a.Router.HandleFunc("/api/user/category", a.updateCategory).Methods("PUT", "OPTIONS")
+	a.Router.HandleFunc("/api/user/category", a.deleteCategory).Methods("DELETE", "OPTIONS")
+	a.Router.HandleFunc("/api/user/categories", a.getUserCategories).Methods("GET", "OPTIONS")
+	a.Router.HandleFunc("/api/user/bookmarks", a.getUserBookmarks).Methods("GET", "OPTIONS")
+	a.Router.HandleFunc("/api/user/category/bookmarks", a.getCategoryBookmarks).Methods("GET", "OPTIONS")
+	// a.Router.HandleFunc("/api/user/category/children", a.getChildrenCategories).Methods("GET", "OPTIONS")
+	// a.Router.HandleFunc("/api/user/category", a.getCategory).Methods("GET", "OPTIONS")
 }
 
 // Run export
@@ -286,13 +292,13 @@ func (a *App) deleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) getBookmark(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+	var b bookmark
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&b); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
-	b := bookmark{ID: id}
+	defer r.Body.Close()
 	if err := b.getBookmark(a.DB); err != nil {
 		switch err {
 		case sql.ErrNoRows:
@@ -306,21 +312,51 @@ func (a *App) getBookmark(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, b)
 }
 
-func (a *App) getUserBookmarks(w http.ResponseWriter, r *http.Request) {
-	var u user
+func (a *App) getCategoryBookmarks(w http.ResponseWriter, r *http.Request) {
+	var b bookmark
 	session, err := Store.Get(r, "logged_in")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not find authorised session")
 		return
 	}
 	if session.Values != nil {
-		u.ID = session.Values["id"].(int)
+		b.UserID = session.Values["id"].(int)
 		session.Save(r, w)
 	} else {
 		respondWithError(w, http.StatusInternalServerError, "No session found")
 		return
 	}
-	bookmarks, err := u.getBookmarks(a.DB)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&b); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+	bookmarks, err := b.getCategoryBookmarks(a.DB)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, bookmarks)
+}
+
+func (a *App) getUserBookmarks(w http.ResponseWriter, r *http.Request) {
+	var b bookmark
+	session, err := Store.Get(r, "logged_in")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not find authorised session")
+		return
+	}
+	if session.Values != nil {
+		b.UserID = session.Values["id"].(int)
+		session.Save(r, w)
+	} else {
+		respondWithError(w, http.StatusInternalServerError, "No session found")
+		return
+	}
+
+	bookmarks, err := b.getUserBookmarks(a.DB)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -355,13 +391,185 @@ func (a *App) createBookmark(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
 	respondWithJSON(w, http.StatusCreated, b)
 }
 
+func (a *App) createCategory(w http.ResponseWriter, r *http.Request) {
+	var id int
+	var c category
+	session, err := Store.Get(r, "logged_in")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not find authorised session")
+		return
+	}
+	if session.Values != nil {
+		id = session.Values["id"].(int)
+		session.Save(r, w)
+	} else {
+		respondWithError(w, http.StatusForbidden, "You are not logged in")
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&c); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+	c.UserID = id
+	if err := c.createCategory(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, c)
+}
+
+func (a *App) updateCategory(w http.ResponseWriter, r *http.Request) {
+	var id int
+	var c category
+	session, err := Store.Get(r, "logged_in")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not find authorised session")
+		return
+	}
+	if session.Values != nil {
+		id = session.Values["id"].(int)
+		session.Save(r, w)
+	} else {
+		respondWithError(w, http.StatusForbidden, "You are not logged in")
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&c); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+	c.UserID = id
+	if err := c.updateCategory(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		log.Fatal(err)
+		return
+	}
+	respondWithJSON(w, http.StatusOK, c)
+}
+
+func (a *App) getChildrenCategories(w http.ResponseWriter, r *http.Request) {
+	var c category
+	session, err := Store.Get(r, "logged_in")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not find authorised session")
+		return
+	}
+	if session.Values != nil {
+		c.UserID = session.Values["id"].(int)
+		session.Save(r, w)
+	} else {
+		respondWithError(w, http.StatusInternalServerError, "No session found")
+		return
+	}
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&c); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+	categories, err := c.getChildrenCategories(a.DB)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, categories)
+}
+
+func (a *App) getUserCategories(w http.ResponseWriter, r *http.Request) {
+	var c category
+	session, err := Store.Get(r, "logged_in")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not find authorised session")
+		return
+	}
+	if session.Values != nil {
+		c.UserID = session.Values["id"].(int)
+		session.Save(r, w)
+	} else {
+		respondWithError(w, http.StatusInternalServerError, "No session found")
+		return
+	}
+	categories, err := c.getUserCategories(a.DB)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		log.Fatal(err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, categories)
+}
+
+func (a *App) getCategory(w http.ResponseWriter, r *http.Request) {
+	var c category
+	session, err := Store.Get(r, "logged_in")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not find authorised session")
+		return
+	}
+	if session.Values != nil {
+		c.UserID = session.Values["id"].(int)
+		session.Save(r, w)
+	} else {
+		respondWithError(w, http.StatusInternalServerError, "No session found")
+		return
+	}
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&c); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	defer r.Body.Close()
+	if err := c.getCategory(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not find order")
+		return
+	}
+	respondWithJSON(w, http.StatusOK, c.Order)
+}
+
 func (a *App) updateBookmark(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	var u user
+	var userid int
+	result := make([]bookmark, 0)
+	session, err := Store.Get(r, "logged_in")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not find/start a session")
+		return
+	}
+	if session.Values != nil {
+		userid = session.Values["id"].(int)
+		session.Save(r, w)
+	} else {
+		respondWithError(w, http.StatusInternalServerError, "Could not find a session ID")
+	}
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&result); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	defer r.Body.Close()
+	if result[0].UserID != userid {
+		respondWithError(w, http.StatusBadRequest, "You do not have permission to change this bookmark")
+		return
+	}
+
+	if err := result[1].updateBookmark(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, result[1])
+}
+
+func (a *App) deleteBookmark(w http.ResponseWriter, r *http.Request) {
+	var id int
 	var b bookmark
 	session, err := Store.Get(r, "logged_in")
 	if err != nil {
@@ -369,73 +577,69 @@ func (a *App) updateBookmark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if session.Values != nil {
-		u.ID = session.Values["id"].(int)
+		id = session.Values["id"].(int)
 		session.Save(r, w)
 	} else {
 		respondWithError(w, http.StatusInternalServerError, "Could not find a session ID")
-	}
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid bookmark ID")
 		return
 	}
-	b.ID = id
-	if err := b.getBookmark(a.DB); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Bookmark with this ID cannot be found")
-		return
-	}
-	if b.UserID != u.ID {
-		respondWithError(w, http.StatusBadRequest, "You do not have permission to change this bookmark")
-		return
-	}
-
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&b); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
+	if err := b.getBookmark(a.DB); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Could not find bookmark with this ID")
+		return
+	}
+	if b.UserID != id {
+		respondWithError(w, http.StatusBadRequest, "You do not have permission to change this bookmark")
+		return
+	}
 
-	if err := b.updateBookmark(a.DB); err != nil {
+	if err := b.deleteBookmark(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	respondWithJSON(w, http.StatusOK, b)
+	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
-func (a *App) deleteBookmark(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, e := strconv.Atoi(vars["id"])
-	if e != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid bookmark ID")
-		return
-	}
-	var u user
-	var b bookmark
+func (a *App) deleteCategory(w http.ResponseWriter, r *http.Request) {
+	var id int
+	var c category
 	session, err := Store.Get(r, "logged_in")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not find/start a session")
 		return
 	}
 	if session.Values != nil {
-		u.ID = session.Values["id"].(int)
+		id = session.Values["id"].(int)
 		session.Save(r, w)
 	} else {
 		respondWithError(w, http.StatusInternalServerError, "Could not find a session ID")
 		return
 	}
-	b.ID = id
-	if err := b.getBookmark(a.DB); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Bookmark with this ID cannot be found")
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&c); err != nil {
+		respondWithError(w, 1, "Invalid request payload")
 		return
 	}
-	if b.UserID != u.ID {
-		respondWithError(w, http.StatusBadRequest, "You do not have permission to change this bookmark")
+	defer r.Body.Close()
+	if err := c.getCategory(a.DB); err != nil {
+		respondWithError(w, 2, "Could not find category with this ID")
+		log.Fatal(err)
 		return
 	}
-
-	if err := b.deleteBookmark(a.DB); err != nil {
+	if c.UserID != id {
+		respondWithError(w, 3, "You do not have permission to change this category")
+		return
+	}
+	if err := c.deleteCategoryChildren(a.DB); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := c.deleteCategory(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

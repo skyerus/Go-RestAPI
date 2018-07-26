@@ -3,6 +3,7 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 var a App
 var users string = "users"
 var bookmarks string = "bookmarks"
+var categories string = "categories"
 var testcookies []*http.Cookie
 
 func TestMain(m *testing.M) {
@@ -25,11 +27,16 @@ func TestMain(m *testing.M) {
 		os.Getenv("TEST_DB_NAME"))
 	ensureTableExists(users)
 	ensureTableExists(bookmarks)
+	ensureTableExists(categories)
+	clearTable(users)
+	clearTable(bookmarks)
+	clearTable(categories)
 
 	code := m.Run()
 
 	clearTable(users)
 	clearTable(bookmarks)
+	clearTable(categories)
 
 	os.Exit(code)
 }
@@ -167,8 +174,8 @@ func TestUpdatePassword(t *testing.T) {
 
 func TestGetNonExistentBookmark(t *testing.T) {
 	clearTable(bookmarks)
-
-	req, _ := http.NewRequest("GET", "/api/user/bookmark/1", nil)
+	payload := []byte(`{"id":1}`)
+	req, _ := http.NewRequest("GET", "/api/user/bookmark", bytes.NewBuffer(payload))
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusNotFound, response.Code)
@@ -183,7 +190,7 @@ func TestGetNonExistentBookmark(t *testing.T) {
 func TestCreateBookmark(t *testing.T) {
 	clearTable(bookmarks)
 
-	payload := []byte(`{"title":"bobby","about":"123456","link":"hello@example.com"}`)
+	payload := []byte(`{"title":"bobby","about":"123456","link":"hello@example.com","category":1,"orderid":1}`)
 
 	req, _ := http.NewRequest("POST", "/api/user/bookmark", bytes.NewBuffer(payload))
 	req.AddCookie(testcookies[0])
@@ -195,15 +202,15 @@ func TestCreateBookmark(t *testing.T) {
 	json.Unmarshal(response.Body.Bytes(), &m)
 
 	if m["title"] != "bobby" {
-		t.Errorf("Expected username to be 'bobby'. Got '%v'", m["username"])
+		t.Errorf("Expected title to be 'bobby'. Got '%v'", m["title"])
 	}
 
 	if m["about"] != "123456" {
-		t.Errorf("Expected password to be '123456'. Got '%v'", m["password"])
+		t.Errorf("Expected about to be '123456'. Got '%v'", m["about"])
 	}
 
 	if m["link"] != "hello@example.com" {
-		t.Errorf("Expected email to be 'hello@example.com'. Got '%v'", m["email"])
+		t.Errorf("Expected link to be 'hello@example.com'. Got '%v'", m["link"])
 	}
 
 	if m["error"] != nil {
@@ -218,20 +225,42 @@ func TestCreateBookmark(t *testing.T) {
 }
 
 func TestGetBookmark(t *testing.T) {
-	req, _ := http.NewRequest("GET", "/api/user/bookmark/1", nil)
+	payload := []byte(`{"id":1}`)
+	req, _ := http.NewRequest("GET", "/api/user/bookmark", bytes.NewBuffer(payload))
 	response := executeRequest(req)
 
 	checkResponseCode(t, http.StatusOK, response.Code)
+
+	var m map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	if m["title"] != "bobby" {
+		t.Errorf("Expected title to be 'bobby'. Got '%v'", m["title"])
+	}
+
+	if m["about"] != "123456" {
+		t.Errorf("Expected about to be '123456'. Got '%v'", m["about"])
+	}
+
+	if m["link"] != "hello@example.com" {
+		t.Errorf("Expected email to be 'hello@example.com'. Got '%v'", m["link"])
+	}
+
+	if m["error"] != nil {
+		t.Errorf("Error message: %v", m["error"])
+	}
 }
 
 func TestUpdateBookmark(t *testing.T) {
-	req, _ := http.NewRequest("GET", "/api/user/bookmark/1", nil)
+	payload := []byte(`{"id":1}`)
+	req, _ := http.NewRequest("GET", "/api/user/bookmark", bytes.NewBuffer(payload))
 	response := executeRequest(req)
 	var originalProduct map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &originalProduct)
-
-	payload := []byte(`{"title":"bobby -new","about":"12233456","link":"hello@example.comwesr"}`)
-	req, _ = http.NewRequest("PUT", "/api/user/bookmark/1", bytes.NewBuffer(payload))
+	// mybytes := bytes.NewBuffer(response.Body.Bytes())
+	// mybytes.Write([]byte(`{"id":1,"title":"bobby -new","about":"12233456","link":"hello@example.comwesr"}`))
+	payload = []byte(`[{"id":1,"title":"bobby","about":"123456","link":"hello@example.com","category":1,"orderid":1,"userid":1},{"id":1,"title":"bobby -new","about":"12233456","link":"hello@example.comwesr"}]`)
+	req, _ = http.NewRequest("PUT", "/api/user/bookmark", bytes.NewBuffer(payload))
 	req.AddCookie(testcookies[0])
 	response = executeRequest(req)
 
@@ -245,21 +274,117 @@ func TestUpdateBookmark(t *testing.T) {
 	}
 
 	if m["title"] == originalProduct["title"] {
-		t.Errorf("Expected the title to change from '%v' to '%v'. Got '%v'", originalProduct["title"], m["title"], m["title"])
+		t.Errorf("Expected the title to change from '%v' to '%v'. Got '%v'", originalProduct["title"], "bobby -new", m["title"])
 	}
 
 	if m["about"] == originalProduct["about"] {
-		t.Errorf("Expected the about to change from '%v' to '%v'. Got '%v'", originalProduct["about"], m["about"], m["about"])
+		t.Errorf("Expected the about to change from '%v' to '%v'. Got '%v'", originalProduct["about"], "12233456", m["about"])
 	}
 
 	if m["link"] == originalProduct["link"] {
-		t.Errorf("Expected the link to change from '%v' to '%v'. Got '%v'", originalProduct["link"], m["link"], m["link"])
+		t.Errorf("Expected the link to change from '%v' to '%v'. Got '%v'", originalProduct["link"], "hello@example.comwesr", m["link"])
 	}
 }
 
-func TestDeleteBookmark(t *testing.T) {
+func TestCreateCategory(t *testing.T) {
+	clearTable(categories)
 
-	req, _ := http.NewRequest("DELETE", "/api/user/bookmark/1", nil)
+	payload := []byte(`{"name":"test_category","parent":0,"children":[1,2,3,4],"bookmarkorder":[2,3,4,1],"categoryloc":[0,0,0,1],"order":[1,2,4,3],"userid":1,"orderid":2}`)
+
+	req, _ := http.NewRequest("POST", "/api/user/category", bytes.NewBuffer(payload))
+	req.AddCookie(testcookies[0])
+	response := executeRequest(req)
+
+	checkResponseCode(t, http.StatusCreated, response.Code)
+
+	var m map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	if m["name"] != "test_category" {
+		t.Errorf("Expected name to be 'test_category'. Got '%v'", m["name"])
+	}
+
+	if m["error"] != nil {
+		t.Errorf("Error message: %v", m["error"])
+	}
+
+	// the id is compared to 1.0 because JSON unmarshaling converts numbers to
+	// floats, when the target is a map[string]interface{}
+	if m["id"] != 1.0 {
+		t.Errorf("Expected product ID to be '1'. Got '%v'", m["id"])
+	}
+
+}
+
+func TestGetCategoryBookmarks(t *testing.T) {
+	payload := []byte(`{"category":1}`)
+	req, _ := http.NewRequest("GET", "/api/user/category/bookmarks", bytes.NewBuffer(payload))
+	req.AddCookie(testcookies[0])
+	response := executeRequest(req)
+
+	checkResponseCode(t, http.StatusOK, response.Code)
+
+	var m []map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	if len(m) != 1 {
+		t.Errorf("Expected length of array to be '1'. Got '%v'", len(m))
+	}
+}
+
+func TestGetUserBookmarks(t *testing.T) {
+	req, _ := http.NewRequest("GET", "/api/user/bookmarks", nil)
+	req.AddCookie(testcookies[0])
+	response := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, response.Code)
+
+	var m []map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	if len(m) != 1 {
+		t.Errorf("Expected length of array to be '1'. Got '%v'", len(m))
+	}
+}
+
+func TestGetUserCategories(t *testing.T) {
+	req, _ := http.NewRequest("GET", "/api/user/categories", nil)
+	req.AddCookie(testcookies[0])
+	response := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, response.Code)
+
+	var m []map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &m)
+
+	if len(m) != 1 {
+		t.Errorf("Expected length of array to be '1'. Got '%v'", len(m))
+	}
+}
+
+func TestUpdateCategory(t *testing.T) {
+	payload := []byte(`{"id":1,"name":"new_category","children":[0,3,5,1],"bookmarkorder":[2,4,6,1],"categoryloc":[1,0,0,1], "order":[1,2,3,4]}`)
+	req, _ := http.NewRequest("PUT", "/api/user/category", bytes.NewBuffer(payload))
+	req.AddCookie(testcookies[0])
+	response := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, response.Code)
+}
+
+func TestDeleteBookmark(t *testing.T) {
+	payload := []byte(`{"id":1}`)
+	req, _ := http.NewRequest("DELETE", "/api/user/bookmark", bytes.NewBuffer(payload))
+	req.AddCookie(testcookies[0])
+	response := executeRequest(req)
+
+	checkResponseCode(t, http.StatusOK, response.Code)
+	var m map[string]string
+	json.Unmarshal(response.Body.Bytes(), &m)
+	if m["result"] != "success" {
+		t.Errorf("Expected the 'result' key of the response to be set to 'Success'. Got '%s'", m["result"])
+	}
+}
+
+func TestDeleteCategory(t *testing.T) {
+	payload := []byte(`{"id":1}`)
+	req, _ := http.NewRequest("DELETE", "/api/user/category", bytes.NewBuffer(payload))
 	req.AddCookie(testcookies[0])
 	response := executeRequest(req)
 
@@ -274,7 +399,7 @@ func TestDeleteBookmark(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	payload := []byte(`{"password":"newpassword"}`)
 
-	req, _ := http.NewRequest("PUT", "/api/user/delete", bytes.NewBuffer(payload))
+	req, _ := http.NewRequest("DELETE", "/api/user", bytes.NewBuffer(payload))
 	req.AddCookie(testcookies[0])
 	response := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, response.Code)
@@ -308,6 +433,12 @@ func ensureTableExists(table string) {
 		if _, err := a.DB.Exec(tableBookmarksCreationQuery); err != nil {
 			log.Fatal(err)
 		}
+	} else if table == "categories" {
+		fmt.Println("Before")
+		if _, err := a.DB.Exec(tableCategoriesCreationQuery); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("After")
 	}
 }
 
@@ -318,6 +449,9 @@ func clearTable(table string) {
 	} else if table == "bookmarks" {
 		a.DB.Exec("DELETE FROM bookmarks")
 		a.DB.Exec("ALTER SEQUENCE bookmarks_id_seq RESTART WITH 1")
+	} else if table == "categories" {
+		a.DB.Exec("DELETE FROM categories")
+		a.DB.Exec("ALTER SEQUENCE categories_id_seq RESTART WITH 1")
 	}
 }
 
@@ -336,7 +470,22 @@ id SERIAL,
 title TEXT NOT NULL,
 about TEXT NOT NULL,
 link TEXT NOT NULL,
-category TEXT,
+category INTEGER,
 userid INTEGER REFERENCES users(id),
+orderid INTEGER,
 CONSTRAINT bookmarks_pkey PRIMARY KEY (id)
+)`
+
+const tableCategoriesCreationQuery = `CREATE TABLE IF NOT EXISTS categories
+(
+id SERIAL,
+name TEXT NOT NULL,
+parent TEXT NOT NULL,
+children INTEGER[],
+bookmarkorder INTEGER[],
+categoryloc INTEGER[],
+orderarray INTEGER[],
+userid INTEGER REFERENCES users(id),
+orderid INTEGER,
+CONSTRAINT categories_pkey PRIMARY KEY (id)
 )`
