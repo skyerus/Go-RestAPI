@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"strconv"
 
 	"github.com/lib/pq"
 )
@@ -9,13 +10,19 @@ import (
 type category struct {
 	ID            int     `json:"id"`
 	Name          string  `json:"name"`
-	Parent        int     `json:"parent"`
-	Children      []uint8 `json:"children"`
-	BookmarkOrder []uint8 `json:"bookmarkorder"`
-	CategoryLoc   []uint8 `json:"categoryloc"`
-	Order         []uint8 `json:"order"`
+	Parent        int64   `json:"parent"`
+	Children      []int64 `json:"children"`
+	BookmarkOrder []int64 `json:"bookmarkorder"`
+	CategoryLoc   []int64 `json:"categoryloc"`
+	Order         []int64 `json:"order"`
 	UserID        int     `json:"userid"`
 	OrderID       int     `json:"orderid"`
+}
+
+type X uint8
+
+func (x X) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.FormatInt(int64(x), 10)), nil
 }
 
 func (c *category) createCategory(db *sql.DB) error {
@@ -46,13 +53,21 @@ func (c *category) getChildrenCategories(db *sql.DB) ([]category, error) {
 	}
 
 	defer rows.Close()
+	// var children []uint8
+	// var bookmarkorder []uint8
+	// var categoryloc []uint8
+	// var order []uint8
 
 	categories := []category{}
 	for rows.Next() {
 		var cc category
-		if err := rows.Scan(&cc.ID, &cc.Name, &cc.Parent, &cc.Children, &cc.BookmarkOrder, &cc.CategoryLoc, &cc.Order, &cc.UserID, &cc.OrderID); err != nil {
+		if err := rows.Scan(&cc.ID, &cc.Name, &cc.Parent, pq.Array(&cc.Children), pq.Array(&cc.BookmarkOrder), pq.Array(&cc.CategoryLoc), pq.Array(&cc.Order), &cc.UserID, &cc.OrderID); err != nil {
 			return nil, err
 		}
+		// cc.Children = children
+		// cc.BookmarkOrder = bookmarkorder
+		// cc.CategoryLoc = categoryloc
+		// cc.Order = order
 		categories = append(categories, cc)
 	}
 	return categories, nil
@@ -72,22 +87,23 @@ func (c *category) deleteCategory(db *sql.DB) error {
 }
 
 func (c *category) getCategory(db *sql.DB) error {
-	return db.QueryRow("SELECT * FROM categories WHERE id=$1", c.ID).Scan(&c.ID, &c.Name, &c.Parent, &c.Children, &c.BookmarkOrder, &c.CategoryLoc, &c.Order, &c.UserID, &c.OrderID)
+	return db.QueryRow("SELECT * FROM categories WHERE id=$1", c.ID).Scan(&c.ID, &c.Name, &c.Parent, pq.Array(&c.Children), pq.Array(&c.BookmarkOrder), pq.Array(&c.CategoryLoc), pq.Array(&c.Order), &c.UserID, &c.OrderID)
 }
 
 func (c *category) getUserCategories(db *sql.DB) ([]category, error) {
-	rows, err := db.Query(
-		"SELECT * FROM categories WHERE userid= $1", c.UserID)
+
+	stmt, err := db.Prepare("SELECT * FROM categories WHERE userid= $1")
 	if err != nil {
 		return nil, err
 	}
-
+	defer stmt.Close()
+	rows, err := stmt.Query(c.UserID)
 	defer rows.Close()
 
 	categories := []category{}
 	for rows.Next() {
 		var cc category
-		if err := rows.Scan(&cc.ID, &cc.Name, &cc.Parent, &cc.Children, &cc.BookmarkOrder, &cc.CategoryLoc, &cc.Order, &cc.UserID, &cc.OrderID); err != nil {
+		if err := rows.Scan(&cc.ID, &cc.Name, &cc.Parent, pq.Array(&cc.Children), pq.Array(&cc.BookmarkOrder), pq.Array(&cc.CategoryLoc), pq.Array(&cc.Order), &cc.UserID, &cc.OrderID); err != nil {
 			return nil, err
 		}
 		categories = append(categories, cc)

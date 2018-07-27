@@ -412,9 +412,11 @@ func (a *App) createCategory(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&c); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		log.Fatal(err)
 		return
 	}
 	defer r.Body.Close()
+	fmt.Printf("%v\n", c.Children)
 	c.UserID = id
 	if err := c.createCategory(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -652,6 +654,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	response, _ := json.Marshal(payload)
+	fmt.Printf("%s\n", response)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

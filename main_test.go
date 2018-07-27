@@ -480,11 +480,11 @@ const tableCategoriesCreationQuery = `CREATE TABLE IF NOT EXISTS categories
 (
 id SERIAL,
 name TEXT NOT NULL,
-parent TEXT NOT NULL,
-children INTEGER[],
-bookmarkorder INTEGER[],
-categoryloc INTEGER[],
-orderarray INTEGER[],
+parent bigint NOT NULL,
+children bigint[],
+bookmarkorder bigint[],
+categoryloc bigint[],
+orderarray bigint[],
 userid INTEGER REFERENCES users(id),
 orderid INTEGER,
 CONSTRAINT categories_pkey PRIMARY KEY (id)
