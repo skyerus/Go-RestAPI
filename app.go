@@ -622,21 +622,21 @@ func (a *App) deleteCategory(w http.ResponseWriter, r *http.Request) {
 	}
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&c); err != nil {
-		respondWithError(w, 1, "Invalid request payload")
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
 	if err := c.getCategory(a.DB); err != nil {
-		respondWithError(w, 2, "Could not find category with this ID")
-		log.Fatal(err)
+		respondWithError(w, http.StatusBadRequest, "Could not find category with this ID")
 		return
 	}
 	if c.UserID != id {
-		respondWithError(w, 3, "You do not have permission to change this category")
+		respondWithError(w, http.StatusBadRequest, "You do not have permission to change this category")
 		return
 	}
 	if err := c.deleteCategoryChildren(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
+		log.Fatal(err)
 		return
 	}
 	if err := c.deleteCategory(a.DB); err != nil {

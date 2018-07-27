@@ -59,10 +59,10 @@ func (c *category) getChildrenCategories(db *sql.DB) ([]category, error) {
 }
 
 func (c *category) deleteCategoryChildren(db *sql.DB) error {
-	if _, err := db.Exec("DELETE from categories WHERE parent=$1 AND userid=$2", c.Name, c.UserID); err != nil {
+	if _, err := db.Exec("DELETE from categories WHERE parent=$1 AND userid=$2", c.ID, c.UserID); err != nil {
 		return err
 	}
-	_, err := db.Exec("DELETE from bookmarks WHERE category=$1 AND userid=$2", c.Name, c.UserID)
+	_, err := db.Exec("DELETE from bookmarks WHERE category=$1 AND userid=$2", c.ID, c.UserID)
 	return err
 }
 

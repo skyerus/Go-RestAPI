@@ -24,7 +24,7 @@ func (b *bookmark) getCategoryBookmarks(db *sql.DB) ([]bookmark, error) {
 	bookmarks := []bookmark{}
 	for rows.Next() {
 		var bb bookmark
-		if err := rows.Scan(&bb.ID, &bb.Title, &bb.About, &bb.Link, &bb.Category, &bb.UserID); err != nil {
+		if err := rows.Scan(&bb.ID, &bb.Title, &bb.About, &bb.Link, &bb.Category, &bb.UserID, &bb.OrderID); err != nil {
 			return nil, err
 		}
 		bookmarks = append(bookmarks, bb)
@@ -44,7 +44,7 @@ func (b *bookmark) getUserBookmarks(db *sql.DB) ([]bookmark, error) {
 	bookmarks := []bookmark{}
 	for rows.Next() {
 		var bb bookmark
-		if err := rows.Scan(&bb.ID, &bb.Title, &bb.About, &bb.Link, &bb.Category, &bb.UserID); err != nil {
+		if err := rows.Scan(&bb.ID, &bb.Title, &bb.About, &bb.Link, &bb.Category, &bb.UserID, &bb.OrderID); err != nil {
 			return nil, err
 		}
 		bookmarks = append(bookmarks, bb)
@@ -54,8 +54,8 @@ func (b *bookmark) getUserBookmarks(db *sql.DB) ([]bookmark, error) {
 
 func (b *bookmark) createBookmark(db *sql.DB) error {
 	err := db.QueryRow(
-		"INSERT INTO bookmarks(title, about, link, category, userid) VALUES($1, $2, $3, $4, $5) RETURNING id",
-		b.Title, b.About, b.Link, b.Category, b.UserID).Scan(&b.ID)
+		"INSERT INTO bookmarks(title, about, link, category, userid, orderid) VALUES($1, $2, $3, $4, $5, $6) RETURNING id",
+		b.Title, b.About, b.Link, b.Category, b.UserID, b.OrderID).Scan(&b.ID)
 
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (u *user) getBookmarks(db *sql.DB) ([]bookmark, error) {
 	bookmarks := []bookmark{}
 	for rows.Next() {
 		var b bookmark
-		if err := rows.Scan(&b.ID, &b.Title, &b.About, &b.Link, &b.Category, &b.UserID); err != nil {
+		if err := rows.Scan(&b.ID, &b.Title, &b.About, &b.Link, &b.Category, &b.UserID, &b.OrderID); err != nil {
 			return nil, err
 		}
 		bookmarks = append(bookmarks, b)
@@ -94,7 +94,7 @@ func (u *user) getBookmarks(db *sql.DB) ([]bookmark, error) {
 
 func (b *bookmark) getBookmark(db *sql.DB) error {
 	return db.QueryRow("SELECT * FROM bookmarks WHERE id=$1",
-		b.ID).Scan(&b.ID, &b.Title, &b.About, &b.Link, &b.Category, &b.UserID)
+		b.ID).Scan(&b.ID, &b.Title, &b.About, &b.Link, &b.Category, &b.UserID, &b.OrderID)
 }
 
 func (b *bookmark) deleteBookmark(db *sql.DB) error {
