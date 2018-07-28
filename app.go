@@ -416,7 +416,6 @@ func (a *App) createCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	fmt.Printf("%v\n", c.Children)
 	c.UserID = id
 	if err := c.createCategory(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())

@@ -3,7 +3,6 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -434,11 +433,9 @@ func ensureTableExists(table string) {
 			log.Fatal(err)
 		}
 	} else if table == "categories" {
-		fmt.Println("Before")
 		if _, err := a.DB.Exec(tableCategoriesCreationQuery); err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("After")
 	}
 }
 
@@ -480,11 +477,11 @@ const tableCategoriesCreationQuery = `CREATE TABLE IF NOT EXISTS categories
 (
 id SERIAL,
 name TEXT NOT NULL,
-parent bigint NOT NULL,
-children bigint[],
-bookmarkorder bigint[],
-categoryloc bigint[],
-orderarray bigint[],
+parent INTEGER NOT NULL,
+children INTEGER[],
+bookmarkorder INTEGER[],
+categoryloc INTEGER[],
+orderarray INTEGER[],
 userid INTEGER REFERENCES users(id),
 orderid INTEGER,
 CONSTRAINT categories_pkey PRIMARY KEY (id)

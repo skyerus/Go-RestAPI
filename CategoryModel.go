@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"strconv"
 
 	"github.com/lib/pq"
 )
@@ -10,19 +9,13 @@ import (
 type category struct {
 	ID            int     `json:"id"`
 	Name          string  `json:"name"`
-	Parent        int64   `json:"parent"`
+	Parent        int     `json:"parent"`
 	Children      []int64 `json:"children"`
 	BookmarkOrder []int64 `json:"bookmarkorder"`
 	CategoryLoc   []int64 `json:"categoryloc"`
 	Order         []int64 `json:"order"`
 	UserID        int     `json:"userid"`
 	OrderID       int     `json:"orderid"`
-}
-
-type X uint8
-
-func (x X) MarshalJSON() ([]byte, error) {
-	return []byte(strconv.FormatInt(int64(x), 10)), nil
 }
 
 func (c *category) createCategory(db *sql.DB) error {
@@ -53,10 +46,6 @@ func (c *category) getChildrenCategories(db *sql.DB) ([]category, error) {
 	}
 
 	defer rows.Close()
-	// var children []uint8
-	// var bookmarkorder []uint8
-	// var categoryloc []uint8
-	// var order []uint8
 
 	categories := []category{}
 	for rows.Next() {
@@ -64,10 +53,6 @@ func (c *category) getChildrenCategories(db *sql.DB) ([]category, error) {
 		if err := rows.Scan(&cc.ID, &cc.Name, &cc.Parent, pq.Array(&cc.Children), pq.Array(&cc.BookmarkOrder), pq.Array(&cc.CategoryLoc), pq.Array(&cc.Order), &cc.UserID, &cc.OrderID); err != nil {
 			return nil, err
 		}
-		// cc.Children = children
-		// cc.BookmarkOrder = bookmarkorder
-		// cc.CategoryLoc = categoryloc
-		// cc.Order = order
 		categories = append(categories, cc)
 	}
 	return categories, nil
