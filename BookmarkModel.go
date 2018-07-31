@@ -34,7 +34,7 @@ func (b *bookmark) getCategoryBookmarks(db *sql.DB) ([]bookmark, error) {
 
 func (b *bookmark) getUserBookmarks(db *sql.DB) ([]bookmark, error) {
 	rows, err := db.Query(
-		"SELECT * FROM bookmarks WHERE userid=$1", b.UserID)
+		"SELECT * FROM bookmarks WHERE userid=$1 ORDER BY id ASC", b.UserID)
 	if err != nil {
 		return nil, err
 	}

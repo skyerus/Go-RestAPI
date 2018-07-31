@@ -55,8 +55,8 @@ func TestCreateUser(t *testing.T) {
 
 	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
-	if m["result"] != "success" {
-		t.Errorf("Expected result to be 'success'. Got '%v'", m["result"])
+	if m["username"] != "bobby" {
+		t.Errorf("Expected username to be 'bobby'. Got '%v'", m["username"])
 	}
 }
 
@@ -73,8 +73,8 @@ func TestLoginUser(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, response.Code)
 	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
-	if m["result"] != "success" {
-		t.Errorf("Expected result to be 'success'. Got '%v'", m["result"])
+	if m["username"] != "bobby" {
+		t.Errorf("Expected username to be 'bobby'. Got '%v'", m["username"])
 	}
 }
 
@@ -106,8 +106,8 @@ func TestLoginUserAgain(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, response.Code)
 	var m map[string]interface{}
 	json.Unmarshal(response.Body.Bytes(), &m)
-	if m["result"] != "success" {
-		t.Errorf("Expected result to be 'success'. Got '%v'", m["result"])
+	if m["username"] != "bobby" {
+		t.Errorf("Expected username to be 'bobby'. Got '%v'", m["username"])
 	}
 }
 

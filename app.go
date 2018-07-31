@@ -97,8 +97,8 @@ func (a *App) createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	session.Values["id"] = u.ID
 	session.Save(r, w)
-
-	respondWithJSON(w, http.StatusCreated, map[string]string{"result": "success"})
+	u.Password = "null"
+	respondWithJSON(w, http.StatusCreated, u)
 }
 
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +129,8 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	}
 	session.Values["id"] = u.ID
 	session.Save(r, w)
-	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
+	u.Password = "null"
+	respondWithJSON(w, http.StatusOK, u)
 }
 
 func (a *App) isLoggedIn(w http.ResponseWriter, r *http.Request) {

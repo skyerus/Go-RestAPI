@@ -77,7 +77,7 @@ func (c *category) getCategory(db *sql.DB) error {
 
 func (c *category) getUserCategories(db *sql.DB) ([]category, error) {
 
-	stmt, err := db.Prepare("SELECT * FROM categories WHERE userid= $1")
+	stmt, err := db.Prepare("SELECT * FROM categories WHERE userid= $1 ORDER BY id ASC")
 	if err != nil {
 		return nil, err
 	}
