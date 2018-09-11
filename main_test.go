@@ -258,7 +258,7 @@ func TestUpdateBookmark(t *testing.T) {
 	json.Unmarshal(response.Body.Bytes(), &originalProduct)
 	// mybytes := bytes.NewBuffer(response.Body.Bytes())
 	// mybytes.Write([]byte(`{"id":1,"title":"bobby -new","about":"12233456","link":"hello@example.comwesr"}`))
-	payload = []byte(`[{"id":1,"title":"bobby","about":"123456","link":"hello@example.com","category":1,"orderid":1,"userid":1},{"id":1,"title":"bobby -new","about":"12233456","link":"hello@example.comwesr"}]`)
+	payload = []byte(`{"id":1,"title":"bobby -new","about":"12233456","link":"hello@example.comwesr"}`)
 	req, _ = http.NewRequest("PUT", "/api/user/bookmark", bytes.NewBuffer(payload))
 	req.AddCookie(testcookies[0])
 	response = executeRequest(req)

@@ -66,8 +66,8 @@ func (b *bookmark) createBookmark(db *sql.DB) error {
 
 func (b *bookmark) updateBookmark(db *sql.DB) error {
 	_, err :=
-		db.Exec("UPDATE bookmarks SET title=$1, about=$2, link=$3 WHERE id=$4",
-			b.Title, b.About, b.Link, b.ID)
+		db.Exec("UPDATE bookmarks SET title=$1, about=$2, link=$3 WHERE id=$4 AND userid=$5",
+			b.Title, b.About, b.Link, b.ID, b.UserID)
 
 	return err
 }

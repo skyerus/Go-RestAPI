@@ -66,3 +66,11 @@ func (u *user) hashPassword() error {
 	u.Password = string(bytes)
 	return err
 }
+
+func (u *user) checkUserExists(db *sql.DB) error {
+	err := db.QueryRow("SELECT id FROM users WHERE username=$1", u.Username).Scan(&u.ID)
+	if err != sql.ErrNoRows {
+		u.ID = -1
+	}
+	return err
+}

@@ -80,6 +80,16 @@ func (a *App) createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	if err := u.checkUserExists(a.DB); err != nil {
+		if u.ID == -1 {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else {
+		respondWithError(w, http.StatusConflict, "User already exists")
+		return
+	}
+
 	if err := u.hashPassword(); err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
@@ -111,7 +121,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	if err := u.getUserID(a.DB, uu.Username); err != nil {
-		respondWithError(w, http.StatusBadRequest, "No found user")
+		respondWithError(w, http.StatusNotFound, "No found user")
 		return
 	}
 	if err := u.getUser(a.DB); err != nil {
@@ -538,7 +548,7 @@ func (a *App) getCategory(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) updateBookmark(w http.ResponseWriter, r *http.Request) {
 	var userid int
-	result := make([]bookmark, 0)
+	var b bookmark
 	session, err := Store.Get(r, "logged_in")
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not find/start a session")
@@ -551,23 +561,20 @@ func (a *App) updateBookmark(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Could not find a session ID")
 	}
 	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&result); err != nil {
+	if err := decoder.Decode(&b); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
 	defer r.Body.Close()
-	if result[0].UserID != userid {
-		respondWithError(w, http.StatusBadRequest, "You do not have permission to change this bookmark")
-		return
-	}
+	b.UserID = userid
 
-	if err := result[1].updateBookmark(a.DB); err != nil {
+	if err := b.updateBookmark(a.DB); err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, result[1])
+	respondWithJSON(w, http.StatusOK, b)
 }
 
 func (a *App) deleteBookmark(w http.ResponseWriter, r *http.Request) {
